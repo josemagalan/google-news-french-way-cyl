@@ -153,15 +153,16 @@ topic_translation <- c(
 )
 
 
+# Function to translate topics and handle NAs
 translate_topics <- function(topics) {
+  if (is.na(topics)) return(NA)
   topics_split <- str_split(topics, ";")[[1]]
   topics_translated <- recode(topics_split, !!!topic_translation)
   paste(topics_translated, collapse = "; ")
 }
 
-# Apply the translation function to the 'Tema' column
 dfMediosOrigen <- dfMediosOrigen %>%
-  mutate(Tema = map_chr(Tema, translate_topics))
+  mutate(Tema = purrr::map_chr(Tema, translate_topics))
 
 # Perform a left join with dfMediosOrigen
 dfNews <- left_join(dfNews, dfMediosOrigen, by = "source")
@@ -217,4 +218,44 @@ DistribucionMediosLogLog <- ggplot(dfMedios, aes(x = medio_num, y = count)) +
 # Save the log-log plot as PDF and JPEG with specified dimensions and resolution
 ggsave("Results/DistribucionMediosLogLog.pdf", plot = DistribucionMediosLogLog, width = 7, height = 4, dpi = 600, device = cairo_pdf)
 ggsave("Results/DistribucionMediosLogLog.jpg", plot = DistribucionMediosLogLog, width = 7, height = 4, dpi = 600)
+
+
+####################################################
+# Topic distribution plots
+####################################################
+
+# Procesamiento
+conteo_temas <- dfMedios %>%
+  filter(!is.na(Topic)) %>%                     # Filtrar para eliminar NAs
+  separate_rows(Topic, sep = ";") %>%           # Separar los temas
+  group_by(source) %>%                         # Agrupar por la columna 'source'
+  mutate(n_temas = n()) %>%                    # Contar temas por registro
+  ungroup() %>%                                # Desagrupar
+  mutate(peso = 1 / n_temas) %>%               # Calcular el peso de cada tema
+  group_by(Topic) %>%                           # Agrupar por tema
+  summarise(conteo = sum(peso))                # Sumar los pesos para obtener el conteo
+
+print(conteo_temas)
+
+
+temas_filtrados <- conteo_temas %>%
+  filter(conteo > 1.0)
+
+# Crea el gráfico de lollipop
+g4_TemasEspecializados <- ggplot(temas_filtrados, aes(x=reorder(Topic, conteo), y=conteo)) +
+  geom_segment(aes(xend=Topic, yend=0), color="#80b1d3", linewidth=1) +
+  geom_point(color="#80b1d3", size=3) +
+  geom_text(aes(label=round(conteo, 1)), vjust=-0.5, nudge_y=0.8) +
+  coord_flip() +
+  theme_ipsum_ps() +
+  labs(x="Tema", y="Número de medios ponderados con peso mayor que uno")
+
+
+ggsave("results/4_MediosTemasEspecializados.pdf", plot = g4_TemasEspecializados, width =8, height = 11, dpi = 600, device = cairo_pdf)
+ggsave("results/4_MediosTemasEspecializados.jpg", plot = g4_TemasEspecializados, width = 8, height = 11, dpi = 600)
+
+#################################################################################################
+
+
+
 
