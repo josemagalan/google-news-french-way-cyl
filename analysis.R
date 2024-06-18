@@ -2,6 +2,7 @@
 library(tidyverse)  # For data manipulation and visualization
 library(readxl)     # For reading Excel files
 library(writexl)    # For writing Excel files
+library(hrbrthemes)  # Load hrbrthemes for different themes
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -177,3 +178,43 @@ dfMedios <- dfNews %>%
 
 # Write the summarized data to an Excel file
 write_xlsx(dfMedios, "results/media_coverage.xlsx")
+
+
+####################################################
+# Media distribution plots
+####################################################
+# Add a numeric column for the X axis
+dfMedios <- dfMedios %>%
+  arrange(desc(count)) %>%
+  mutate(medio_num = seq(1, n(), by = 1))
+
+# Create the bar plot
+DistribucionMedios <- ggplot(dfMedios, aes(x = medio_num, y = count)) +
+  geom_bar(stat = "identity") +  # Use bars to represent data
+  theme_ipsum_ps() +  # Apply the Ipsump theme
+  labs(title = "Number of news by media",
+       x = "Number of media",  # Label for the X axis
+       y = "Number of news by media") +  # Label for the Y axis
+  scale_x_continuous(breaks = seq(0, nrow(dfMedios), by = 50)) +  # Adjust X axis ticks
+  scale_y_continuous(breaks = seq(0, max(dfMedios$count, na.rm = TRUE), by = 50))  # Adjust Y axis ticks
+
+# Save the bar plot as PDF and JPEG with specified dimensions and resolution
+ggsave("results/DistribucionMedios.pdf", plot = DistribucionMedios, width = 7, height = 4, dpi = 600, device = cairo_pdf)
+ggsave("results/DistribucionMedios.jpg", plot = DistribucionMedios, width = 7, height = 4, dpi = 600)
+
+# Create the log-log scale plot
+DistribucionMediosLogLog <- ggplot(dfMedios, aes(x = medio_num, y = count)) +
+  geom_point() +  # Use points instead of bars for a log-log plot
+  theme_ipsum_ps() +  # Apply the Ipsump theme
+  labs(title = "Number of news by media in Log-Log Scale",
+       x = "Number of media (Log)",  # Label for the X axis
+       y = "Number of news by media (Log)") +  # Label for the Y axis
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +  # Log scale for X axis
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))  # Log scale for Y axis
+
+# Save the log-log plot as PDF and JPEG with specified dimensions and resolution
+ggsave("Results/DistribucionMediosLogLog.pdf", plot = DistribucionMediosLogLog, width = 7, height = 4, dpi = 600, device = cairo_pdf)
+ggsave("Results/DistribucionMediosLogLog.jpg", plot = DistribucionMediosLogLog, width = 7, height = 4, dpi = 600)
+
