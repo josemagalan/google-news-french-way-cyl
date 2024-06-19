@@ -3,6 +3,7 @@ library(tidyverse)  # For data manipulation and visualization
 library(readxl)     # For reading Excel files
 library(writexl)    # For writing Excel files
 library(hrbrthemes)  # Load hrbrthemes for different themes
+library(ggalluvial)  # For alluvial plots
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -18,6 +19,7 @@ dfMediosOrigen <- read_xlsx("data/medios_origen.xlsx", col_types = c("text", "te
 dfMediosOrigen <- dfMediosOrigen %>%
   mutate(Ámbito = case_when(
     Ámbito %in% c("Nacional/Internacional") ~ "International/National",
+    Ámbito %in% c("Nacional") ~ "International/National",
     Ámbito %in% c("Local/Regional") ~ "Regional/Local",
     Ámbito %in% c("Temático especializado") ~ "Specialized Thematic Media"
   ))
@@ -32,7 +34,6 @@ country_translation <- c(
   "Qatar" = "Qatar",
   "Polonia" = "Poland",
   "Méjico" = "Mexico",
-  "Irlanda" = "Ireland",
   "Chile" = "Chile",
   "Nueva Zelanda" = "New Zealand",
   "Cuba" = "Cuba",
@@ -61,6 +62,7 @@ country_translation <- c(
   "Albania" = "Albania",
   "Eslovenia" = "Slovenia",
   "Malta" = "Malta",
+  "Irlanda" = "Ireland",
   "China" = "China"
 )
 
@@ -158,7 +160,7 @@ translate_topics <- function(topics) {
   if (is.na(topics)) return(NA)
   topics_split <- str_split(topics, ";")[[1]]
   topics_translated <- recode(topics_split, !!!topic_translation)
-  paste(topics_translated, collapse = "; ")
+  paste(topics_translated, collapse = ";")
 }
 
 dfMediosOrigen <- dfMediosOrigen %>%
@@ -221,40 +223,138 @@ ggsave("Results/DistribucionMediosLogLog.jpg", plot = DistribucionMediosLogLog, 
 
 
 ####################################################
-# Topic distribution plots
+# Topic distribution plots in specialized media
 ####################################################
 
-# Procesamiento
-conteo_temas <- dfMedios %>%
-  filter(!is.na(Topic)) %>%                     # Filtrar para eliminar NAs
-  separate_rows(Topic, sep = ";") %>%           # Separar los temas
-  group_by(source) %>%                         # Agrupar por la columna 'source'
-  mutate(n_temas = n()) %>%                    # Contar temas por registro
-  ungroup() %>%                                # Desagrupar
-  mutate(peso = 1 / n_temas) %>%               # Calcular el peso de cada tema
-  group_by(Topic) %>%                           # Agrupar por tema
-  summarise(conteo = sum(peso))                # Sumar los pesos para obtener el conteo
+# Processing
+topic_count <- dfMedios %>%
+  filter(!is.na(Topic)) %>%                    # Filter to remove NAs
+  separate_rows(Topic, sep = ";") %>%          # Separate topics
+  group_by(source) %>%                         # Group by the 'source' column
+  mutate(n_topics = n()) %>%                   # Count topics per record
+  ungroup() %>%                                # Ungroup
+  mutate(weight = 1 / n_topics) %>%            # Calculate the weight of each topic
+  group_by(Topic) %>%                          # Group by topic
+  summarise(count = sum(weight))               # Sum the weights to get the count
 
-print(conteo_temas)
+filtered_topics <- topic_count %>%
+  filter(count > 1.0)                          # Filter topics with count greater than 1
 
-
-temas_filtrados <- conteo_temas %>%
-  filter(conteo > 1.0)
-
-# Crea el gráfico de lollipop
-g4_TemasEspecializados <- ggplot(temas_filtrados, aes(x=reorder(Topic, conteo), y=conteo)) +
+# Create the lollipop chart
+SpecializedTopics <- ggplot(filtered_topics, aes(x=reorder(Topic, count), y=count)) +
   geom_segment(aes(xend=Topic, yend=0), color="#80b1d3", linewidth=1) +
   geom_point(color="#80b1d3", size=3) +
-  geom_text(aes(label=round(conteo, 1)), vjust=-0.5, nudge_y=0.8) +
+  geom_text(aes(label=round(count, 1)), vjust=-0.5, nudge_y=0.8) +
   coord_flip() +
   theme_ipsum_ps() +
-  labs(x="Tema", y="Número de medios ponderados con peso mayor que uno")
+  labs(x="Topic", y="Number of media weighted with weight greater than one")
+
+ggsave("results/SpecializedMediaTopics.pdf", plot = SpecializedTopics, width =8, height = 11, dpi = 600, device = cairo_pdf)
+ggsave("results/SpecializedMediaTopics.jpg", plot = SpecializedTopics, width = 8, height = 11, dpi = 600)
 
 
-ggsave("results/4_MediosTemasEspecializados.pdf", plot = g4_TemasEspecializados, width =8, height = 11, dpi = 600, device = cairo_pdf)
-ggsave("results/4_MediosTemasEspecializados.jpg", plot = g4_TemasEspecializados, width = 8, height = 11, dpi = 600)
+####################################################
+# Summary by Country and Scope
+####################################################
+
+# General summary: group by country and summarize total media and total news
+dfGeneralSummary <- dfMedios %>%
+  group_by(Country) %>%
+  summarise(
+    total_media = n(),  # Total number of media outlets
+    total_news = sum(count, na.rm = TRUE),  # Total number of news articles
+    .groups = "drop"
+  )
+
+# Detailed summary: group by country and scope, then summarize media and news
+dfDetailedSummary <- dfMedios %>%
+  group_by(Country, Scope) %>%
+  summarise(
+    media = n(),  # Number of media outlets
+    news = sum(count, na.rm = TRUE),  # Number of news articles
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = Scope,  # Use scope names for new columns
+    values_from = c(media, news),  # Use media and news values
+    names_sep = "_"  # Separator for new column names
+  )
+
+# Remove the "media_NA" and "news_NA" columns if they exist
+dfDetailedSummary <- dfDetailedSummary %>% 
+  select(-media_NA, -news_NA)
+
+# Merge general and detailed summaries
+dfFinalSummary <- left_join(dfGeneralSummary, dfDetailedSummary, by = "Country")
+
+# Replace NA values with 0
+dfFinalSummary <- dfFinalSummary %>%
+  mutate(across(starts_with("media_"), ~replace_na(., 0))) %>%
+  mutate(across(starts_with("news_"), ~replace_na(., 0))) %>%
+  replace_na(list(
+    total_media = 0,
+    total_news = 0
+  ))
+
+# Save the final summary to an Excel file
+write_xlsx(dfFinalSummary, "Results/SummaryByCountryAndScope.xlsx")
 
 #################################################################################################
+
+# Setting the limit for categorizing as "Others"
+othersLimit <- 10
+
+# Calculate the total media by country
+total_media_by_country <- dfMedios %>%
+  count(Scope, Country, name = "n") %>%
+  group_by(Country) %>%
+  summarise(total_media = sum(n), .groups = "drop") %>%
+  mutate(Country = ifelse(total_media < othersLimit, "Others", Country)) %>%
+  group_by(Country) %>%
+  summarise(total_media = sum(total_media), .groups = "drop")
+
+# Count media by country and filter those with fewer than the limit
+media_count_by_country <- dfMedios %>%
+  group_by(Country) %>%
+  summarise(total_media = n(), .groups = "drop") %>%
+  filter(total_media < othersLimit)
+
+# Replace country names with "Others" for those with fewer than the limit
+dfMedios2 <- dfMedios %>%
+  count(Scope, Country, name = "n") %>%
+  mutate(Country = ifelse(Country %in% media_count_by_country$Country, "Others", Country)) %>%
+  group_by(Scope, Country) %>%
+  summarise(n = sum(n), .groups = "drop")
+
+# Merge with the total media by country
+dfMedios2 <- left_join(dfMedios2, total_media_by_country, by = "Country")
+
+# Reorder and relevel the factor for countries
+dfMedios2 <- dfMedios2 %>%
+  mutate(Country = fct_reorder(Country, total_media, .desc = TRUE)) %>%
+  mutate(Country = fct_relevel(Country, "Others", after = Inf))
+
+# Filter out rows where Scope or Country is NA if they exist
+dfMedios2_filtered <- dfMedios2 %>%
+  filter(!is.na(Scope) & !is.na(Country))
+
+# Create the Sankey diagram
+ScopeAndCountry <- ggplot(dfMedios2_filtered, aes(axis1 = Scope, axis2 = Country, y = n)) +
+  scale_x_discrete(name = "", limits = c("Scope", "Country"), labels = c("Scope", "Country")) +
+  geom_alluvium(aes(fill = Scope)) +
+  geom_stratum() +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  theme_minimal() +
+  ggtitle("Sankey Diagram of Scope and Country (number of media). \nOnly countries with at least 10 different media are represented individually.")
+
+# Show the plot
+print(ScopeAndCountry)
+
+# Save the Sankey diagram as PDF and JPEG with specified dimensions and resolution
+ggsave("Results/ScopeAndCountry.pdf", plot = ScopeAndCountry, width = 16, height = 11, dpi = 600, device = cairo_pdf)
+ggsave("Results/ScopeAndCountry.jpg", plot = ScopeAndCountry, width = 16, height = 11, dpi = 600)
+
 
 
 
