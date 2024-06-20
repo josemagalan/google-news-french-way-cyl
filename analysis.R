@@ -5,6 +5,7 @@ library(writexl)    # For writing Excel files
 library(hrbrthemes)  # Load hrbrthemes for different themes
 library(ggalluvial)  # For alluvial plots
 library(igraph)      # For network analysis
+library(viridis)     # For color palettes
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -448,3 +449,47 @@ plot(graph)
 
 # Export the network to a GEXF file
 write_graph(graph, file = "results/GoogleNewsPortalsNetwork.graphml", format = "graphml")
+
+####################################################
+# News by Google News portal
+####################################################
+
+# Reorder the data by the number of news articles, from highest to lowest
+nNews <- nNews %>%
+  arrange(desc(nNews))
+
+# Bar chart with the proportion of news articles by country
+newsByCountry_barchart <- ggplot(nNews, aes(x = reorder(Pais, desc(nNews)), y = nNews, fill = Pais)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis(discrete = TRUE) +  # Use viridis for colors
+  theme_ipsum_ps() +  # Apply the ipsump theme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis text
+  labs(x = "Country", y = "Number of News Articles", 
+       title = "News Articles Obtained by Google News from Each Country", 
+       fill = "Pais")
+
+# Display the bar chart
+print(newsByCountry_barchart)
+
+# Save the bar chart as a PDF and JPEG with specified dimensions and resolution
+ggsave("results/newsByCountry_barchart.pdf", plot = newsByCountry_barchart, width = 8, height = 6, dpi = 600, device = cairo_pdf)
+ggsave("results/newsByCountry_barchart.jpg", plot = newsByCountry_barchart, width = 8, height = 6, dpi = 600)
+
+
+####################################################
+
+# Create the lollipop chart
+newsByCountry_lollipot <- ggplot(nNews, aes(x=reorder(Pais, nNews), y=nNews)) +
+  geom_segment(aes(xend=Pais, yend=0), color="#80b1d3", linewidth=1) +  # Draw segments
+  geom_point(color="#80b1d3", size=3) +  # Draw points
+  geom_text(aes(label=round(nNews, 1)), vjust=-0.5, nudge_y=0.9) +  # Add text labels
+  coord_flip() +  # Flip the coordinates
+  theme_ipsum_ps() +  # Apply the ipsump theme
+  labs(x="Country (Google News)", y="Number of News Articles")  # Label the axes
+
+# Display the lollipop chart
+print(newsByCountry_lollipot)
+
+# Save the lollipop chart as a PDF and JPEG with specified dimensions and resolution
+ggsave("results/newsByCountry_lollipotpdf", plot = newsByCountry_lollipot, width = 8, height = 5, dpi = 600, device = cairo_pdf)
+ggsave("results/newsByCountry_lollipot.jpg", plot = newsByCountry_lollipot, width = 8, height = 5, dpi = 600)
