@@ -4,6 +4,7 @@ library(readxl)     # For reading Excel files
 library(writexl)    # For writing Excel files
 library(hrbrthemes)  # Load hrbrthemes for different themes
 library(ggalluvial)  # For alluvial plots
+library(igraph)      # For network analysis
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -356,6 +357,94 @@ ggsave("Results/ScopeAndCountry.pdf", plot = ScopeAndCountry, width = 16, height
 ggsave("Results/ScopeAndCountry.jpg", plot = ScopeAndCountry, width = 16, height = 11, dpi = 600)
 
 
+####################################################
+# Relation among Google News portals
+####################################################
+# Specify the country columns
+cols_country <- c("España", "Francia", "Irlanda", "Italia", "PaísesBajos", "Polonia", 
+                  "Portugal", "Suecia", "UK", "USA", "Alemania", "Australia", "Brasil", 
+                  "Canada", "Eslovenia")
 
+# Translation vector from Spanish to English
+country_translation <- c(
+  "España" = "Spain",
+  "Francia" = "France",
+  "Irlanda" = "Ireland",
+  "Italia" = "Italy",
+  "PaísesBajos" = "Netherlands",
+  "Polonia" = "Poland",
+  "Portugal" = "Portugal",
+  "Suecia" = "Sweden",
+  "UK" = "UK",
+  "USA" = "USA",
+  "Alemania" = "Germany",
+  "Australia" = "Australia",
+  "Brasil" = "Brazil",
+  "Canada" = "Canada",
+  "Eslovenia" = "Slovenia"
+)
 
+# Assign a unique ID to each news article before transforming the dataframe
+dfNews$news_ID <- seq_len(nrow(dfNews))
 
+# Step 1: Transform Data
+dfNews_long <- dfNews %>%
+  pivot_longer(cols = all_of(cols_country), names_to = "Pais", values_to = "Presence") %>%
+  filter(Presence == 1) %>%
+  mutate(Pais = recode(Pais, !!!country_translation))  # Translate country names
+
+# Sum of news articles by country
+nNews <- dfNews_long %>%
+  group_by(Pais) %>%
+  summarise(nNews = n())
+
+# Preparation for links
+news_pairs <- dfNews_long %>%
+  select(news_ID, Pais) %>%
+  group_by(news_ID) %>%
+  summarise(Countries = list(Pais)) %>%
+  filter(lengths(Countries) > 1) %>%
+  unnest(Countries, .preserve = "news_ID")
+
+# Step 2: Create Nodes
+nodes <- nNews
+
+# Preparation for links
+news_pairs <- dfNews_long %>%
+  select(news_ID, Pais) %>%
+  group_by(news_ID) %>%
+  summarise(Countries = list(Pais)) %>%
+  filter(lengths(Countries) > 1) %>%
+  unnest(Countries)
+
+# Step 2: Create Nodes
+nodes <- nNews
+
+# Step 3: Create Links
+# Create a list of all country pairs for each news ID
+news_pairs <- news_pairs %>%
+  group_by(news_ID) %>%
+  summarise(Pairs = list(expand.grid(Country1 = Countries, Country2 = Countries))) %>%
+  unnest(Pairs)
+
+# Remove duplicates and pairs with the same country on both sides
+links <- news_pairs %>%
+  filter(Country1 != Country2) %>%
+  unique()
+
+# Count the number of times each pair appears
+links <- links %>%
+  group_by(Country1, Country2) %>%
+  summarise(Weight = n())
+
+# Step 4: Build the Network
+graph <- graph_from_data_frame(d = links, vertices = nodes, directed = FALSE)
+
+# Assign the number of news articles to each node
+V(graph)$nNews <- nodes$nNews
+
+# Step 5: Visualization (optional)
+plot(graph)
+
+# Export the network to a GEXF file
+write_graph(graph, file = "results/GoogleNewsPortalsNetwork.graphml", format = "graphml")
