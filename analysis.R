@@ -493,3 +493,23 @@ print(newsByCountry_lollipot)
 # Save the lollipop chart as a PDF and JPEG with specified dimensions and resolution
 ggsave("results/newsByCountry_lollipotpdf", plot = newsByCountry_lollipot, width = 8, height = 5, dpi = 600, device = cairo_pdf)
 ggsave("results/newsByCountry_lollipot.jpg", plot = newsByCountry_lollipot, width = 8, height = 5, dpi = 600)
+
+
+####################################################
+# BIC Coverage
+####################################################
+
+# Create a summary for each BIC category
+bicNews <- dfNews %>%
+  group_by(BIC) %>%
+  summarise(
+    TotalNews = n(),  # Total number of news articles
+    InternationalNational = sum(Ámbito %in% c("International/National")),  # Count of International and National
+    RegionalLocal = sum(Ámbito %in% c("Regional/Local")),  # Count of Regional and Local
+    SpecializedThematic = sum(Ámbito == "Specialized Thematic Media")  # Count of Specialized Thematic
+  )
+
+# Save the result to an xlsx file
+write_xlsx(bicNews, "results/bicNews_DetailedScope.xlsx")
+
+
