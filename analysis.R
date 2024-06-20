@@ -557,3 +557,32 @@ V(network)$nNews <- nNews_values
 write_graph(network, file = "results/BIC_news.graphml", format = "graphml")
 
 
+####################################################
+# BICs Internationalization
+####################################################
+
+dfNews <- dfNews %>% ungroup()
+
+# Convert the country columns to numeric
+dfNews <- dfNews %>%
+  mutate(across(c(Francia, Irlanda, Italia, PaísesBajos, Polonia, Portugal, Suecia, UK, USA, Alemania, Australia, Brasil, Canada, Eslovenia), as.numeric))
+
+# Add columns to identify international news
+dfNews <- dfNews %>%
+  mutate(Internacional_País = if_else(rowSums(select(., Francia, Irlanda, Italia, PaísesBajos, Polonia, Portugal, Suecia, UK, USA, Alemania, Australia, Brasil, Canada, Eslovenia)) > 0 , TRUE, FALSE),
+         Internacional_Idioma = if_else(IdiomaConsenso != "es", TRUE, FALSE),
+         Internacional_Medio = if_else(País != "España", TRUE, FALSE))
+
+# Calculate metrics for each BIC
+dfInternationalization <- dfNews %>%
+  group_by(BIC) %>%
+  summarise(InternationalNews_Country = sum(Internacional_País, na.rm = TRUE),
+            InternationalNews_Language = sum(Internacional_Idioma, na.rm = TRUE),
+            InternationalNews_Media = sum(Internacional_Medio, na.rm = TRUE),
+            nNews = n())
+
+# Show the result
+print(dfInternationalization)
+
+# Save the result to an xlsx file
+write_xlsx(dfInternationalization, "results/BICS_Internationalization.xlsx")
