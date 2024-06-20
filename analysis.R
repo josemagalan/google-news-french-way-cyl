@@ -513,3 +513,47 @@ bicNews <- dfNews %>%
 write_xlsx(bicNews, "results/bicNews_DetailedScope.xlsx")
 
 
+####################################################
+# Network map of co-mentions between cultural assets
+####################################################
+
+# Create the edge list for the network
+edge_list <- dfNews %>%
+  filter(!is.na(link)) %>%
+  distinct(BIC, link) %>%
+  group_by(link) %>%
+  filter(n() > 1) %>%
+  do({
+    data.frame(t(combn(.$BIC, 2)), stringsAsFactors = FALSE)
+  }) %>%
+  dplyr::rename(BIC = X1, BIC_pair = X2) %>%
+  group_by(BIC, BIC_pair) %>%
+  summarise(weight = n(), .groups = 'drop')
+
+# Create the network graph from the edge list
+network <- graph_from_data_frame(d = edge_list, directed = FALSE)
+
+# Summarize the number of news articles for each BIC
+BIC_counts <- dfNews %>%
+  group_by(BIC) %>%
+  summarise(nNews = n())
+
+# Ensure the node names are consistent
+V(network)$name <- as.character(V(network)$name)
+
+# Create a vector to store the nNews values
+nNews_values <- numeric(length = length(V(network)))
+
+# Assign nNews values to the nodes
+for (i in seq_along(V(network))) {
+  node_name <- V(network)$name[i]
+  nNews_values[i] <- BIC_counts$nNews[which(BIC_counts$BIC == node_name)]
+}
+
+# Assign the nNews vector to the network
+V(network)$nNews <- nNews_values
+
+# Export the network to a GEXF file
+write_graph(network, file = "results/BIC_news.graphml", format = "graphml")
+
+
