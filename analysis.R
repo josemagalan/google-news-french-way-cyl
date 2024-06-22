@@ -706,6 +706,7 @@ dev.off()
 ####################################################
 # Language
 ####################################################
+
 # Group the dfNews dataframe by BIC and IdiomaConsenso, and count the occurrences
 df_grouped <- dfNews %>%
   count(BIC, IdiomaConsenso) %>%
@@ -747,3 +748,73 @@ ggsave("results/15_Top15BIC_Language.pdf", plot = g15_top15_language, width = 8,
 
 # Save the plot as a JPEG in the 'results' folder
 ggsave("results/15_Top15BIC_Language.jpg", plot = g15_top15_language, width = 8, height = 5, dpi = 600)
+
+
+####################################################
+# Annual time series
+####################################################
+
+# Convert the 'posted' column to Date type and extract the year
+dfNews <- dfNews %>%
+  mutate(posted = as.Date(posted),
+         year = year(posted))
+
+# Group the data by year and count the number of entries per year
+annual_data <- dfNews %>%
+  group_by(year) %>%
+  summarise(count = n())
+
+# Create a time series plot for the number of news articles per year
+AnnualTimeSeries <- ggplot(annual_data, aes(x = year, y = count)) +
+  geom_line() + 
+  theme_ipsum_ps() +
+  labs(title = "Number of News Articles per Year",
+       x = "Year",
+       y = "Number of News Articles")
+
+# Print the plot
+print(AnnualTimeSeries)
+
+# Save the plot as a PDF in the 'results' folder
+ggsave("results/AnnualTimeSeries.pdf", plot = AnnualTimeSeries, width = 8, height = 5, dpi = 600, device = cairo_pdf)
+
+# Save the plot as a JPEG in the 'results' folder
+ggsave("results/AnnualTimeSeries.jpg", plot = AnnualTimeSeries, width = 8, height = 5, dpi = 600)
+
+
+####################################################
+# Monthly time series
+####################################################
+
+# Data Preparation
+dfNews <- dfNews %>%
+  mutate(posted = as.Date(posted),                     # Convert 'posted' column to Date type
+         month = floor_date(posted, "month"),          # Extract the month from the 'posted' date
+         year_month = format(posted, "%Y-%m")) %>%     # Format the date as "year-month"
+  filter(posted >= as.Date("2020-01-01"))              # Filter the data to include only entries from January 1, 2020 onwards
+
+# Group the data by year_month and count the number of entries per month
+monthly_data <- dfNews %>%
+  group_by(year_month) %>%
+  summarise(count = n())
+
+# Ensure that year_month is a factor and is ordered chronologically
+monthly_data$year_month <- factor(monthly_data$year_month, levels = unique(monthly_data$year_month))
+
+# Create the time series plot for the number of news articles per month since 2020
+MonthlyTimeSeries <- ggplot(monthly_data, aes(x = year_month, y = count, group = 1)) +
+  geom_line() +
+  theme_ipsum_ps() +
+  labs(title = "Number of News Articles per Month Since 2020",
+       x = "Month",
+       y = "Number of News Articles") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate the X-axis labels for better readability
+
+# Print the plot
+print(MonthlyTimeSeries)
+
+# Save the plot as a PDF in the 'results' folder
+ggsave("results/MonthlyTimeSeries.pdf", plot = MonthlyTimeSeries, width = 10, height = 6, dpi = 600, device = cairo_pdf)
+
+# Save the plot as a JPEG in the 'results' folder
+ggsave("results/MonthlyTimeSeries.jpg", plot = MonthlyTimeSeries, width = 10, height = 6, dpi = 600)
