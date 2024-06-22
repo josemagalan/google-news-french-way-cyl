@@ -9,6 +9,7 @@ library(gtsummary)   # For creating tables
 library(readxl)     # For reading Excel files
 library(factoextra)  # For clustering analysis
 library(ggrepel)     # For text labels in plots
+library(RColorBrewer)  # For color palettes
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -702,5 +703,47 @@ print(biplot_1_2)
 dev.off()
 
 
+####################################################
+# Language
+####################################################
+# Group the dfNews dataframe by BIC and IdiomaConsenso, and count the occurrences
+df_grouped <- dfNews %>%
+  count(BIC, IdiomaConsenso) %>%
+  group_by(BIC) %>%
+  mutate(total_news = sum(n)) %>%
+  ungroup() %>%
+  arrange(desc(total_news))
 
+# Select the top 15 BICs based on the total number of news
+top_bics <- df_grouped %>%
+  distinct(BIC, .keep_all = TRUE) %>%
+  top_n(15, total_news)
 
+# Filter the grouped dataframe to include only the top 15 BICs
+df_filtered <- df_grouped %>%
+  filter(BIC %in% top_bics$BIC)
+
+# Update the BIC factor levels to match the order of top BICs
+df_filtered <- df_filtered %>%
+  mutate(BIC = factor(BIC, levels = rev(unique(top_bics$BIC))))
+
+# Manually extend the Set3 palette with additional colors
+set3_extended <- c(brewer.pal(12, "Set3"), "#6baed6", "#fd8d3c", "#31a354")
+
+# Create a bar plot for the top 15 BICs by language
+g15_top15_language <- ggplot(df_filtered, aes(x = BIC, y = n, fill = IdiomaConsenso)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "Cultural Assets", y = "Number of News", fill = "Language") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_flip() +
+  theme_ipsum_ps() +
+  scale_fill_manual(values = set3_extended) # Use the manually extended palette
+
+# Print the plot
+print(g15_top15_language)
+
+# Save the plot as a PDF in the 'results' folder
+ggsave("results/15_Top15BIC_Language.pdf", plot = g15_top15_language, width = 8, height = 5, dpi = 600, device = cairo_pdf)
+
+# Save the plot as a JPEG in the 'results' folder
+ggsave("results/15_Top15BIC_Language.jpg", plot = g15_top15_language, width = 8, height = 5, dpi = 600)
