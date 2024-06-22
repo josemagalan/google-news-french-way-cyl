@@ -868,3 +868,47 @@ ggsave("results/decomp_news_plots.pdf", plot = decomp_news_plots, width = 10, he
 
 # Save the plots as a JPG in the 'results' folder
 ggsave("results/decomp_news_plots.jpg", plot = decomp_news_plots, width = 10, height = 10, dpi = 600)
+
+
+####################################################
+# Distribution by topics of the news published by specialized media, considering
+# a weight equal to or greater than 5 as the minimum threshold for weighted attention.
+####################################################
+
+# Processing
+topic_count <- dfNews %>%
+  filter(!is.na(Tema)) %>%                     # Filter to remove NAs
+  separate_rows(Tema, sep = ";") %>%           # Separate the topics
+  group_by(link) %>%                            # Group by the 'link' column
+  mutate(n_topics = n()) %>%                    # Count topics per record
+  ungroup() %>%                                 # Ungroup
+  mutate(weight = 1 / n_topics) %>%             # Calculate the weight of each topic
+  group_by(Tema) %>%                           # Group by topic
+  summarise(count = sum(weight))                # Sum the weights to get the count
+
+print(topic_count)
+
+# Save the weighted topic counts to an Excel file
+write_xlsx(topic_count, "results/topic_count_WeightedNews.xlsx")
+
+# Filter topics with a count greater than 4.9
+filtered_topics <- topic_count %>%
+  filter(count > 4.9)
+
+# Create the lollipop chart
+SpecializedTopics <- ggplot(filtered_topics, aes(x = reorder(Tema, count), y = count)) +
+  geom_segment(aes(xend = Tema, yend = 0), color = "#80b1d3", linewidth = 1) +
+  geom_point(color = "#80b1d3", size = 3) +
+  geom_text(aes(label = round(count, 1)), vjust = -0.5, nudge_y = 0.8) +
+  coord_flip() +
+  theme_ipsum_ps() +
+  labs(x = "Topic", y = "Number of media weighted with weight greater or equal to five")
+
+# Show the plot
+print(SpecializedTopics)
+
+# Save the plot as a PDF in the 'results' folder
+ggsave("results/WeightedSpecializedMediaTopics.pdf", plot = SpecializedTopics, width = 8, height = 11, dpi = 600, device = cairo_pdf)
+
+# Save the plot as a JPG in the 'results' folder
+ggsave("results/WeightedSpecializedMediaTopics.jpg", plot = SpecializedTopics, width = 8, height = 11, dpi = 600)
