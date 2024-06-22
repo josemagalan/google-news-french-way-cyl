@@ -1,14 +1,14 @@
 # Load necessary libraries
 library(tidyverse)  # For data manipulation and visualization
-library(readxl)     # For reading Excel files
 library(writexl)    # For writing Excel files
 library(hrbrthemes)  # Load hrbrthemes for different themes
 library(ggalluvial)  # For alluvial plots
 library(igraph)      # For network analysis
 library(viridis)     # For color palettes
 library(gtsummary)   # For creating tables
-library(officer)     # For creating Word documents
-library(flextable)   # For creating tables in Word documents
+library(readxl)     # For reading Excel files
+library(factoextra)  # For clustering analysis
+library(ggrepel)     # For text labels in plots
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -594,6 +594,9 @@ write_xlsx(dfInternationalization, "results/BICS_Internationalization.xlsx")
 ####################################################
 # Regressions
 ####################################################
+library(officer)     # For creating Word documents
+library(flextable)   # For creating tables in Word documents
+
 
 # Perform the linear regression
 regression_model <- lm(InternationalNews_Language ~ nNews, data = dfInternationalization)
@@ -655,3 +658,49 @@ doc <- read_docx() %>%
 
 # Save the Word document
 print(doc, target = "results/Regression_InternationalNews_Media.docx")
+
+
+####################################################
+# PCA
+####################################################
+
+# Ensure that the columns for PCA are numeric
+dfInternationalization <- dfInternationalization %>%
+  dplyr::rename(
+    `International Source Media` = InternationalNews_Media,
+    `Language Different from Spanish` = InternationalNews_Language,
+    `News on Google News Portals Different from Spain` = InternationalNews_Country
+  )
+
+correlation_data <- as.data.frame(scale(dfInternationalization[, c("News on Google News Portals Different from Spain", "Language Different from Spanish", "International Source Media")]))
+
+# Perform the PCA
+res.pca <- prcomp(correlation_data, scale = TRUE)
+
+# Extract the coordinates of the principal components
+coords <- as.data.frame(res.pca$x)
+
+# Add the BIC labels to the coordinates dataframe
+coords$BIC <- dfInternationalization$BIC
+
+# Visualize the PCA with conditional labels
+biplot_1_2 <- fviz_pca_biplot(res.pca, repel = TRUE, geom = "point", 
+                              col.var = "blue", col.ind = "black",
+                              axes = c(1, 2)) +
+  geom_text_repel(data = subset(coords, abs(PC2) >= 0.8 | abs(PC1) > 1), 
+                  aes(label = BIC, x = PC1, y = PC2),
+                  color = "#fb8072", max.overlaps = 100)
+
+# Save the biplot in PDF format in the 'Results' folder
+pdf("results/PCA.pdf", width = 16, height = 8)
+print(biplot_1_2)
+dev.off()
+
+# Save the biplot in JPEG format in the 'Results' folder
+jpeg("results/PCA.jpg", width = 16 * 600, height = 8 * 600, units = "px", res = 600)
+print(biplot_1_2)
+dev.off()
+
+
+
+
