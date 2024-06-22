@@ -24,10 +24,10 @@ This study utilizes Google News as a data source to analyze the media coverage o
 
 The results of the analysis are saved in the results folder. This includes:
 
-Temporal trends of media coverage
-Thematic categorization of articles
-Internationalization metrics
-Interaction networks
+- Temporal trends of media coverage
+- Thematic categorization of articles
+- Internationalization metrics
+- Interaction networks
 
 ## License
 
