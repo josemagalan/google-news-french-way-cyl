@@ -10,6 +10,7 @@ library(readxl)     # For reading Excel files
 library(factoextra)  # For clustering analysis
 library(ggrepel)     # For text labels in plots
 library(RColorBrewer)  # For color palettes
+library(gridExtra)   # For arranging plots
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -818,3 +819,52 @@ ggsave("results/MonthlyTimeSeries.pdf", plot = MonthlyTimeSeries, width = 10, he
 
 # Save the plot as a JPEG in the 'results' folder
 ggsave("results/MonthlyTimeSeries.jpg", plot = MonthlyTimeSeries, width = 10, height = 6, dpi = 600)
+
+
+####################################################
+# Time series decomposition
+####################################################
+
+# Convert the monthly data counts into a time series object starting from January 2020 with monthly frequency
+ts_news <- ts(monthly_data$count, start = c(2020, 1), frequency = 12)
+
+# Decompose the time series using STL (Seasonal-Trend decomposition using LOESS)
+decomp_news <- stl(ts_news, s.window = "periodic")
+
+# Convert the decomposed time series into a dataframe and add the date column
+decomp_news_df <- as.data.frame(decomp_news$time.series)
+decomp_news_df$date <- time(decomp_news$time.series)
+
+# Plot the original time series of news articles per month since 2020
+plot_series_news <- ggplot(monthly_data, aes(x = year_month, y = count, group = 1)) +
+  geom_line(color = "black") +
+  theme_minimal() +
+  labs(title = "Time Series of News Articles per Month Since 2020", x = "Month", y = "Number of News Articles") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate the X-axis labels for better readability
+
+# Plot for the Trend component
+plot_trend_news <- ggplot(decomp_news_df, aes(x = date, y = trend)) +
+  geom_line(color = "#bc3754") +
+  theme_minimal() +
+  labs(title = "Trend", x = "Month", y = "")
+
+# Plot for the Seasonal component
+plot_seasonal_news <- ggplot(decomp_news_df, aes(x = date, y = seasonal)) +
+  geom_line(color = "#21918c") +
+  theme_minimal() +
+  labs(title = "Seasonality", x = "Month", y = "")
+
+# Plot for the Residual component
+plot_residual_news <- ggplot(decomp_news_df, aes(x = date, y = remainder)) +
+  geom_line(color = "#fde725") +
+  theme_minimal() +
+  labs(title = "Residual", x = "Month", y = "")
+
+# Arrange the plots in a grid
+decomp_news_plots <- grid.arrange(plot_series_news, plot_trend_news, plot_seasonal_news, plot_residual_news, ncol = 1)
+
+# Save the plots as a PDF in the 'results' folder
+ggsave("results/decomp_news_plots.pdf", plot = decomp_news_plots, width = 10, height = 10, dpi = 600)
+
+# Save the plots as a JPG in the 'results' folder
+ggsave("results/decomp_news_plots.jpg", plot = decomp_news_plots, width = 10, height = 10, dpi = 600)
