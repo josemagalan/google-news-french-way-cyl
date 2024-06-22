@@ -6,6 +6,9 @@ library(hrbrthemes)  # Load hrbrthemes for different themes
 library(ggalluvial)  # For alluvial plots
 library(igraph)      # For network analysis
 library(viridis)     # For color palettes
+library(gtsummary)   # For creating tables
+library(officer)     # For creating Word documents
+library(flextable)   # For creating tables in Word documents
 
 # Read the raw news dataset from an Excel file
 dfNewsRaw <- read_xlsx("data/dataset_noticias.xlsx")
@@ -571,7 +574,7 @@ dfNews <- dfNews %>%
 dfNews <- dfNews %>%
   mutate(Internacional_País = if_else(rowSums(select(., Francia, Irlanda, Italia, PaísesBajos, Polonia, Portugal, Suecia, UK, USA, Alemania, Australia, Brasil, Canada, Eslovenia)) > 0 , TRUE, FALSE),
          Internacional_Idioma = if_else(IdiomaConsenso != "es", TRUE, FALSE),
-         Internacional_Medio = if_else(País != "España", TRUE, FALSE))
+         Internacional_Medio = if_else(País != "Spain", TRUE, FALSE))
 
 # Calculate metrics for each BIC
 dfInternationalization <- dfNews %>%
@@ -586,3 +589,69 @@ print(dfInternationalization)
 
 # Save the result to an xlsx file
 write_xlsx(dfInternationalization, "results/BICS_Internationalization.xlsx")
+
+
+####################################################
+# Regressions
+####################################################
+
+# Perform the linear regression
+regression_model <- lm(InternationalNews_Language ~ nNews, data = dfInternationalization)
+
+# Create summary table
+summary_table <- tbl_regression(regression_model)
+
+# Convert the table to a Word-compatible format
+word_table <- as_flex_table(summary_table)
+
+# Print the table
+print(word_table)
+
+# Export the table to a Word document
+doc <- read_docx() %>% 
+  body_add_flextable(word_table) %>% 
+  body_add_par("Table 1: Regression InternationalNews_Language", style = "heading 1")  # Add a heading to the table if needed
+
+# Save the Word document
+print(doc, target = "results/Regression_InternationalNews_Language.docx")
+
+# Perform the linear regression
+regression_model <- lm(InternationalNews_Country ~ nNews, data = dfInternationalization)
+
+# Create summary table
+summary_table <- tbl_regression(regression_model)
+
+# Convert the table to a Word-compatible format
+word_table <- as_flex_table(summary_table)
+
+# Print the table
+print(word_table)
+
+# Export the table to a Word document
+doc <- read_docx() %>% 
+  body_add_flextable(word_table) %>% 
+  body_add_par("Table 1: Regression InternationalNews_Country", style = "heading 1")  # Add a heading to the table if needed
+
+# Save the Word document
+print(doc, target = "results/Regression_InternationalNews_Country.docx")
+
+
+# Perform the linear regression
+regression_model <- lm(InternationalNews_Media ~ nNews, data = dfInternationalization)
+
+# Create summary table
+summary_table <- tbl_regression(regression_model)
+
+# Convert the table to a Word-compatible format
+word_table <- as_flex_table(summary_table)
+
+# Print the table
+print(word_table)
+
+# Export the table to a Word document
+doc <- read_docx() %>% 
+  body_add_flextable(word_table) %>% 
+  body_add_par("Table 1: Regression InternationalNews_Media", style = "heading 1")  # Add a heading to the table if needed
+
+# Save the Word document
+print(doc, target = "results/Regression_InternationalNews_Media.docx")
