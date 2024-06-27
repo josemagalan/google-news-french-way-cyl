@@ -1,6 +1,6 @@
 ![Logo](logo/17.png)
 
-# The media impact of the cultural assets of the French Way in Castilla y León: An analysis through Google News
+# The media impact of the Assets of Cultural Interest of the French Way in Castilla y León: An analysis through Google News
 
 This repository contains the code and data to replicate the experiments and analysis carried out in the paper "The media impact of the cultural assets of the French Way in Castilla y León: An analysis through Google News". The analyses primarily focus on the presence and impact of cultural heritage sites in Google News.
 
